@@ -33,7 +33,7 @@ cvProcessors = '#$ -pe smp 1'
 cvWorkingDir = '#$ -cwd'
 cvJobName = '#$ -N trim-array'
 cvStdout = '#$ -j y'
-cvMemoryReserve = '#$ -l h_vmem=5G'
+cvMemoryReserve = '#$ -l h_vmem=10G'
 # set array job loop
 length(cvQueries)
 cvArrayJob = '#$ -t 1-18'
