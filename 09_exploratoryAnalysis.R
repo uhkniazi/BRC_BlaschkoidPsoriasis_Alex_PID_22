@@ -227,16 +227,16 @@ densityplot(~ values | ind, data=dfData)
 
 str(dfSample.2)
 dfData$fTreatment = factor(dfSample.2$group1)
-dfData$fBioRep = factor(dfSample.2$group2)
-dfData$fTrRep = factor(dfSample.2$group1):factor(dfSample.2$group2)
+dfData$fPatient = factor(dfSample.2$group2)
+dfData$fTrPt = factor(dfSample.2$group1):factor(dfSample.2$group2)
 
-densityplot(~ values | ind, groups=fTrRep, data=dfData, auto.key = list(columns=3))
+densityplot(~ values | ind, groups=fTrPt, data=dfData, auto.key = list(columns=3))
 densityplot(~ values | ind, groups=fTreatment, data=dfData, auto.key = list(columns=3))
-densityplot(~ values | ind, groups=fBioRep, data=dfData, auto.key = list(columns=3))
+densityplot(~ values | ind, groups=fPatient, data=dfData, auto.key = list(columns=3))
 # format data for modelling
 dfData$Coef.1 = factor(dfData$fTreatment:dfData$ind)
-dfData$Coef.2 = factor(dfData$fBioRep:dfData$ind)
-dfData$Coef.3 = factor(dfData$fTrRep:dfData$ind)
+dfData$Coef.2 = factor(dfData$fPatient:dfData$ind)
+dfData$Coef.3 = factor(dfData$fTrPt:dfData$ind)
 str(dfData)
 
 fit.lme1 = lmer(values ~ 1  + (1 | Coef.1), data=dfData)
@@ -284,12 +284,12 @@ traceplot(fit.stan.3, 'sigmaRan')
 
 ### 2 covariates
 m1 = model.matrix(values ~ Coef.1 - 1, data=dfData)
-m2 = model.matrix(values ~ Coef.3 - 1, data=dfData)
+m2 = model.matrix(values ~ Coef.2 - 1, data=dfData)
 m = cbind(m1, m2)
 
 lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
                  NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$Coef.1)),
-                                              rep(2, times=nlevels(dfData$Coef.3))
+                                              rep(2, times=nlevels(dfData$Coef.2))
                  ),
                  y=dfData$values)
 
@@ -376,15 +376,15 @@ apply(mDraws.sim, 2, function(x) {
 
 ############## differences in coefficients
 ## get the coefficient of interest - Modules in our case from the random coefficients section
-mCoef = extract(fit.stan.3)$betas
+mCoef = extract(fit.stan.2)$betas
 dim(mCoef)
 ## get the intercept at population level
-iIntercept = as.numeric(extract(fit.stan.3)$populationMean)
+iIntercept = as.numeric(extract(fit.stan.2)$populationMean)
 ## add the intercept to each coefficient, to get the full coefficient
 mCoef = sweep(mCoef, 1, iIntercept, '+')
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mCoef), mods=c(levels(dfData$Coef.1), levels(dfData$Coef.3), levels(dfData$Coef.4)))
+d = data.frame(cols=1:ncol(mCoef), mods=c(levels(dfData$Coef.1), levels(dfData$Coef.2)))#, levels(dfData$Coef.4)))
 # the split is done below on : symbol
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
@@ -393,21 +393,21 @@ head(d)
 
 d[d$`2` == 'PC1',]
 ## main effects + interactions
-tapply(dfData$values, dfData$Coef.4, mean)
-iKO.B2.PC1 = rowSums(mCoef[,c(1, 7, 10)])
-iKO.B1.PC1 = rowSums(mCoef[,c(1, 5, 9)])
-iWT.B2.PC1 = rowSums(mCoef[,c(3, 7, 14)])
-iWT.B1.PC1 = rowSums(mCoef[,c(3, 5, 13)])
+tapply(dfData$values, dfData$Coef.3, mean)
+iLei.New.PC1 = rowSums(mCoef[,c(1, 5)])
+iNl.New.PC1 = rowSums(mCoef[,c(3, 5)])
+iLei.Old.PC1 = rowSums(mCoef[,c(1, 7)])
+iNl.Old.PC1 = rowSums(mCoef[,c(3, 7)])
 
-iWT.PC1.av = rowMeans(cbind(iWT.B2.PC1, iWT.B1.PC1))
-iKO.PC1.av = rowMeans(cbind(iKO.B2.PC1, iKO.B1.PC1))
+# iWT.PC1.av = rowMeans(cbind(iWT.B2.PC1, iWT.B1.PC1))
+# iKO.PC1.av = rowMeans(cbind(iKO.B2.PC1, iKO.B1.PC1))
 
 ## main effects
 tapply(dfData$values, dfData$Coef.1, mean)
-iKO.PC1 = (mCoef[,1])
-iWT.PC1 = (mCoef[,3])
+summary(mCoef[,1])
+summary(mCoef[,3])
 
-tapply(dfData$values, dfData$Coef.3, mean)
+tapply(dfData$values, dfData$Coef.2, mean)
 mean(mCoef[,5])
 mean(mCoef[,7])
 ##########################################
