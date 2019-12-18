@@ -85,11 +85,11 @@ identical(colnames(mData.norm), as.character(dfSample.2$fReplicates))
 ## delete sample section after testing
 mData.norm = round(mData.norm, 0)
 
-set.seed(123)
-i = sample(1:nrow(mData.norm), 10, replace = F)
-dfData = data.frame(t(mData.norm[i,]))
+# set.seed(123)
+# i = sample(1:nrow(mData.norm), 100, replace = F)
+# dfData = data.frame(t(mData.norm[i,]))
 
-#dfData = data.frame(t(mData.norm))
+dfData = data.frame(t(mData.norm))
 dim(dfData)
 dfData = stack(dfData)
 
@@ -103,17 +103,17 @@ dfData$Coef.1 = factor(dfData$fTreatment:dfData$ind)
 dfData$Coef.2 = factor(dfData$fPatient:dfData$ind)
 str(dfData)
 
-# setup the model
-library(lme4)
-fit.lme1 = glmer.nb(values ~ 1 + (1 | Coef.1) + (1 | Coef.2), data=dfData)
-summary(fit.lme1)
-fit.lme2 = glmer.nb(values ~ 1 + (1 | Coef.1), data=dfData)
-summary(fit.lme2)
-anova(fit.lme1, fit.lme2)
-ran = ranef(fit.lme1, condVar=F)
-
-plot(log(fitted(fit.lme1)), resid(fit.lme1), pch=20, cex=0.7)
-lines(lowess(log(fitted(fit.lme1)), resid(fit.lme1)), col=2)
+# # setup the model
+# library(lme4)
+# fit.lme1 = glmer.nb(values ~ 1 + (1 | Coef.1) + (1 | Coef.2), data=dfData)
+# summary(fit.lme1)
+# fit.lme2 = glmer.nb(values ~ 1 + (1 | Coef.1), data=dfData)
+# summary(fit.lme2)
+# anova(fit.lme1, fit.lme2)
+# ran = ranef(fit.lme1, condVar=F)
+# 
+# plot(log(fitted(fit.lme1)), resid(fit.lme1), pch=20, cex=0.7)
+# lines(lowess(log(fitted(fit.lme1)), resid(fit.lme1)), col=2)
 
 ## setup the stan model
 library(rstan)
@@ -138,31 +138,38 @@ stanDso = rstan::stan_model(file='nbinomResp2RandomEffectsMultipleScales.stan')
 ## this is done to avoid loops in the stan script to map the scale parameters
 ## of each ind/gene to the respective set of coefficients for jitters
 d = dfData[!duplicated(dfData$Coef.1), ]
+d2 = dfData[!duplicated(dfData$Coef.2), ]
 
 lStanData = list(Ntotal=nrow(dfData), 
                  Nclusters1=nlevels(dfData$Coef.1),
+                 Nclusters2=nlevels(dfData$Coef.2),
                  NScaleBatches1 = nlevels(dfData$ind), # to add a separate scale term for each gene
+                 NScaleBatches2 = nlevels(dfData$ind), # to add a separate scale term for each gene
                  NgroupMap1=as.numeric(dfData$Coef.1),
+                 NgroupMap2=as.numeric(dfData$Coef.2),
                  NBatchMap1=as.numeric(d$ind), # this is where we use the second level mapping
+                 NBatchMap2=as.numeric(d2$ind), # this is where we use the second level mapping
                  Nphi=nlevels(dfData$ind),
                  NphiMap=as.numeric(dfData$ind),
                  y=dfData$values, 
                  #gammaShape=l$shape, gammaRate=l$rate,
                  intercept = mean(log(dfData$values+0.5)), intercept_sd= sd(log(dfData$values+0.5))*3)
 
-#' ptm = proc.time()
-#' 
-#' fit.stan = sampling(stanDso, data=lStanData, iter=1500, chains=4,
-#'                     pars=c('sigmaRan1',
-#'                            'phi',
-#'                            #'mu',
-#'                            'rGroupsJitter1'
-#'                            #'betas',
-#'                            #'phi_scaled'
-#'                            ),
-#'                     cores=4, control=list(adapt_delta=0.99, max_treedepth = 11))#, init=initf)
-#' save(fit.stan, file='results/fit.stan.nb_13Nov.rds')
-#' ptm.end = proc.time()
+ptm = proc.time()
+
+fit.stan = sampling(stanDso, data=lStanData, iter=1500, chains=4,
+                    pars=c('sigmaRan1',
+                           'sigmaRan2',
+                           'phi',
+                           #'mu',
+                           'rGroupsJitter1',
+                           'rGroupsJitter2',
+                           'betas'
+                           #'phi_scaled'
+                           ),
+                    cores=4, control=list(adapt_delta=0.99, max_treedepth = 11))#, init=initf)
+save(fit.stan, file='results/fit.stan.nb_16Dec.rds')
+ptm.end = proc.time()
 print(fit.stan, c('sigmaRan1'), digits=3)
 print(fit.stan, c('phi'), digits=3)
 print(fit.stan, c('rGroupsJitter1'))
@@ -191,15 +198,13 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mCoef), mods=levels(dfData$Coef))
+d = data.frame(cols=1:ncol(mCoef), mods=levels(dfData$Coef.1))
 # the split is done below on : symbol, but factor name has a : symbol due
 # to creation of interaction earlier, do some acrobatics to sort that issue
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
 head(d)
-d$`1` = d$`1`:d$`2`
-d = d[,-4]
 colnames(d) = c(colnames(d)[1:2], c('fBatch', 'ind'))
 str(d)
 d$split = factor(d$ind)
@@ -208,7 +213,7 @@ levels(d$fBatch)
 ## repeat this for each comparison
 
 ## get a p-value for each comparison
-l = tapply(d$cols, d$split, FUN = function(x, base='WT:2', deflection='miR-142 KO:2') {
+l = tapply(d$cols, d$split, FUN = function(x, base='Non-lesional', deflection='Lesional') {
   c = x
   names(c) = as.character(d$fBatch[c])
   dif = getDifference(ivData = mCoef[,c[deflection]], ivBaseline = mCoef[,c[base]])
@@ -225,41 +230,54 @@ dfResults$adj.P.Val = p.adjust(dfResults$pvalue, method='BH')
 ### plot the results
 dfResults$logFC = dfResults$difference
 dfResults$P.Value = dfResults$pvalue
-library(org.Mm.eg.db)
+library(org.Hs.eg.db)
 ## remove X from annotation names
 dfResults$ind = gsub('X', '', as.character(dfResults$ind))
-df = AnnotationDbi::select(org.Mm.eg.db, keys = as.character(dfResults$ind), columns = 'SYMBOL', keytype = 'ENTREZID')
+df = AnnotationDbi::select(org.Hs.eg.db, keys = as.character(dfResults$ind), columns = 'SYMBOL', keytype = 'ENTREZID')
 i = match(dfResults$ind, df$ENTREZID)
 df = df[i,]
 dfResults$SYMBOL = df$SYMBOL
 identical(dfResults$ind, df$ENTREZID)
 ## produce the plots 
-f_plotVolcano(dfResults, 'KO:2 vs WT:2')#, fc.lim=c(-2.5, 2.5))
-f_plotVolcano(dfResults, 'KO:2 vs WT:2', fc.lim=range(dfResults$logFC))
+f_plotVolcano(dfResults, 'lei vs nl')#, fc.lim=c(-2.5, 2.5))
+f_plotVolcano(dfResults, 'lei vs nl', fc.lim=range(dfResults$logFC))
 
 m = tapply(dfData$values, dfData$ind, mean)
 i = match(rownames(dfResults), names(m))
 m = m[i]
 identical(names(m), rownames(dfResults))
-plotMeanFC(log(m), dfResults, 0.01, 'KO:2 vs WT:2')
+plotMeanFC(log(m), dfResults, 0.01, 'lei vs nl')
 table(dfResults$adj.P.Val < 0.01)
 ## save the results 
-write.csv(dfResults, file='results/DEAnalysisKO:2VsWT:2.xls')
+write.csv(dfResults, file='results/DEAnalysisLesionalVsNonLesional.xls')
 
 ######### do a comparison with deseq2
 str(dfSample.2)
-dfDesign = data.frame(Treatment = factor(dfSample.2$group1, levels = c('WT', 'miR-142 KO'))[dfSample.2$group2 == '2'],
-                      row.names=colnames(mData)[dfSample.2$group2 == '2'])
+dfDesign = data.frame(Treatment = factor(dfSample.2$group1, levels = c('Non-lesional', 'Lesional')), Patient=factor(dfSample.2$group2),
+                      row.names=colnames(mData))
 
-oDseq = DESeqDataSetFromMatrix(mData[,rownames(dfDesign)], dfDesign, design = ~ Treatment)
+oDseq = DESeqDataSetFromMatrix(mData, dfDesign, design = ~ Treatment + Patient)
 oDseq = DESeq(oDseq)
 
 plotDispEsts(oDseq)
-oRes = results(oDseq)
+oRes = results(oDseq, contrast = c('Treatment', 'Lesional', 'Non-lesional'))
 plotMA(oRes)
 temp = as.data.frame(oRes)
 i = match((dfResults$ind), rownames(temp))
 temp = temp[i,]
 identical((dfResults$ind), rownames(temp))
-plot(dfResults$logFC, temp$log2FoldChange, pch=20)
+plot(dfResults$logFC, log(2^temp$log2FoldChange), pch=20)
 table(oRes$padj < 0.01)
+write.csv(oRes, file='results/DESeq.xls')
+
+r1 = dfResults
+r2 = oRes
+
+r1 = r1[order(abs(r1$logFC), decreasing = T),]
+head(r1)
+r2$logFC = log(2^r2$log2FoldChange)
+r2 = r2[order(abs(r2$logFC), decreasing = T),]
+
+r1.top = r1$ind[1:100]
+r2.top = rownames(r2)[1:100]
+table(r1.top %in% r2.top)
