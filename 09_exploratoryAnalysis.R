@@ -49,28 +49,6 @@ source('CDiagnosticPlots.R')
 # delete the file after source
 unlink('CDiagnosticPlots.R')
 
-oDiag.1 = CDiagnosticPlots(log(mData+0.5), 'Raw')
-# the batch variable we wish to colour by, 
-# this can be any grouping/clustering in the data capture process
-str(dfSample)
-fBatch = factor(dfSample$group3)
-levels(fBatch)
-fBatch = fBatch:factor(dfSample$group1)
-
-boxplot.median.summary(oDiag.1, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
-plot.mean.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
-plot.sigma.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
-plot.missing.summary(oDiag.1, fBatch, axis.label.cex = 0.5, cex.main=1)
-plot.PCA(oDiag.1, fBatch, cex.main=1)
-plot.dendogram(oDiag.1, fBatch, labels_cex = 0.8, cex.main=0.7)
-## change parameters 
-l = CDiagnosticPlotsGetParameters(oDiag.1)
-l$PCA.jitter = F
-l$HC.jitter = F
-oDiag.1 = CDiagnosticPlotsSetParameters(oDiag.1, l)
-plot.PCA(oDiag.1, fBatch, legend.pos = 'bottom')
-plot.dendogram(oDiag.1, fBatch, labels_cex = 0.7)
-
 ## use combination of batch and biological source as identifier for technical replicates
 fReplicates = factor(dfSample$group1):factor(dfSample$group2)
 levels(fReplicates)
@@ -90,15 +68,7 @@ dfSample.2 = dfSample[sapply(m, function(x) return(x[1])), ]
 identical(colnames(mData), as.character(dfSample.2$fReplicates))
 dim(dfSample.2)
 dfSample.2 = droplevels.data.frame(dfSample.2)
-oDiag.2 = CDiagnosticPlots(log(mData+0.5), 'Raw Merged')
-l = CDiagnosticPlotsGetParameters(oDiag.2)
-l$PCA.jitter = F
-l$HC.jitter = F
-oDiag.2 = CDiagnosticPlotsSetParameters(oDiag.2, l)
-plot.PCA(oDiag.2, dfSample.2$fReplicates)
-xtabs( ~ group2 + group1, data=dfSample.2)
 
-## normalise the data
 # drop the rows where average across rows is less than 3
 i = rowMeans(mData)
 table( i < 3)
@@ -117,52 +87,182 @@ ivProb = apply(mData, 1, function(inData) {
 
 hist(ivProb)
 
+## convert the gene names to symbols
+library(org.Hs.eg.db)
+df = AnnotationDbi::select(org.Hs.eg.db, keys = as.character(rownames(mData)), columns = 'SYMBOL', keytype = 'ENTREZID')
+i = match(rownames(mData), df$ENTREZID)
+df = df[i,]
+identical(rownames(mData), df$ENTREZID)
+rownames(mData) = df$SYMBOL
+
+############### load the second data set
+dfStudy.meta = read.csv('dataExternal/E-GEOD-54456-experiment-design.tsv', header=T, sep='\t')
+dfStudy.counts = read.csv('dataExternal/E-GEOD-54456-raw-counts.tsv', header=T, sep='\t')
+mData.study = as.matrix(dfStudy.counts[,-c(1,2)])
+rownames(mData.study) = as.character(dfStudy.counts$Gene.Name)
+
+# remove low count genes
+i = rowMeans(mData.study)
+table(i < 3)
+mData.study = mData.study[!(i < 3),]
+dim(mData.study)
+
+## put samples in same order in both metadata and count tables
+dfSample.study = dfStudy.meta[,c(1:2)]
+head(dfSample.study)
+dfSample.study$Run = as.character(dfSample.study$Run)
+str(dfSample.study)
+table(dfSample.study$Run %in% colnames(mData.study))
+mData.study = mData.study[,dfSample.study$Run]
+identical(dfSample.study$Run, colnames(mData.study))
+
+## match the genes in the two data sets
+table(rownames(mData) %in% rownames(mData.study))
+mData = mData[rownames(mData) %in% rownames(mData.study), ]
+table(rownames(mData) %in% rownames(mData.study))
+length(unique(rownames(mData.study))); dim(mData.study)
+mData.study = mData.study[rownames(mData), ]
+dim(mData.study); dim(mData)
+identical(rownames(mData), rownames(mData.study))
+
+## normalise the 2 data sets separately
 library(DESeq2)
 sf = estimateSizeFactorsForMatrix(mData)
-mData.norm = sweep(mData, 2, sf, '/')
+sf2 = estimateSizeFactorsForMatrix(mData.study)
 
-identical(colnames(mData.norm), as.character(dfSample.2$fReplicates))
+mData.norm.1 = sweep(mData, 2, sf, '/')
+mData.norm.2 = sweep(mData.study, 2, sf2, '/')
 
-## create a second normalised matrix based on subset of data on batches
-sf.1 = estimateSizeFactorsForMatrix(mData[,dfSample.2$group2 == 'NEW'])
-sf.2 = estimateSizeFactorsForMatrix(mData[,dfSample.2$group2 == 'OLD'])
-sf.sub = c(sf.1, sf.2)
-i = match(colnames(mData), names(sf.sub))
-identical(names(sf.sub[i]), colnames(mData))
-sf.sub = sf.sub[i]
-plot(sf, sf.sub, col=c(1,2)[as.numeric(factor(dfSample.2$group2))], xlab='Joint Size Factor', ylab='Batch wise SF')
-mData.norm.2 = sweep(mData, 2, sf.sub, '/')
+################## merge the two samples 
+mData.merged = cbind(mData.norm.1, mData.norm.2)
+fGroups = c(as.character(dfSample.2$group1), as.character(dfSample.study$Sample.Characteristic.disease.))
+fGroups = factor(fGroups)
+levels(fGroups)
+## check matrix structure
+oDiag.1 = CDiagnosticPlots(log(mData.merged+1), 'norm separate')
+l = CDiagnosticPlotsGetParameters(oDiag.1)
+l$PCA.jitter = F
+l$HC.jitter = F
+
+oDiag.1 = CDiagnosticPlotsSetParameters(oDiag.1, l)
+fBatch = fGroups
+
+par(mfrow=c(1,1))
+boxplot.median.summary(oDiag.1, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
+plot.mean.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
+plot.sigma.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
+plot.missing.summary(oDiag.1, fBatch, axis.label.cex = 0.5, cex.main=1)
+plot.PCA(oDiag.1, fBatch, csLabels = '')
+plot.dendogram(oDiag.1, fBatch, labels_cex = 0.5)
+
+## choose some genes that are high scoring in first dataset
+cvGeneList = scan(what=character())
+mData.sub = mData.merged[rownames(mData.merged) %in% cvGeneList, ]
+dim(mData.sub)
+
+## plot these genes
+library(lattice)
+df = data.frame(t(log(mData.sub+1)))
+df = stack(df)
+levels(fGroups)
+f = as.character(fGroups)
+f = gsub('Lesional', 'L', f)
+f = gsub('Non-lesional', 'NL', f)
+f = gsub('normal', 'nor', f)
+f = gsub('psoriasis', 'ps', f)
+df$fGroups = factor(f, levels = c('L', 'NL', 'ps', 'nor'))
+dotplot(values ~ fGroups | ind, data=df, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7), scales=list(relation='free', x=list(cex=0.7), y=list(cex=0.7)))
+
+
+
+
+
+
+
+cvGeneList = c('UBC', 'SDHA', 'CYC1', 'CANX', 'ATP5B', 'TBP',
+               'YWHAZ', '2M', 'RPLP2', 'GAPDH', 'GUS', '18S', 'ACTIN')
+
+li = sapply(cvGeneList, grep, rownames(mData), ignore.case=T)
+sapply(li, function(x) rownames(mData)[x])
+
+## observe the list and correct the gene names
+cvGeneList = c('UBC', 'SDHA', 'CYC1', 'CANX', 'TBP',
+               'YWHAZ', 'B2M', 'RPLP2', 'GAPDH')
+
+m = mData.merged[cvGeneList,]
+
+################# look at the gene stability
+library(NormqPCR) 
+lGeNorm = selectHKs(t(log(m+1)), method='geNorm', Symbols=rownames(m), minNrHK=4)
+
+mGenesSel = m[lGeNorm$ranking[1:4],]
+#sf1 = exp(colMeans(log(mGenesSel+1)))
+sf1 = estimateSizeFactorsForMatrix(mData.merged)# controlGenes = rownames(mData.merged) %in% lGeNorm$ranking[1:4])
+mData.norm.1 = sweep(mData.merged, 2, sf1, '/')
+
+oDiag.2 = CDiagnosticPlots(log(mData.norm.1+1), 'norm 1')
+l = CDiagnosticPlotsGetParameters(oDiag.2)
+l$PCA.jitter = F
+l$HC.jitter = F
+
+oDiag.2 = CDiagnosticPlotsSetParameters(oDiag.2, l)
+fBatch = fGroups
+levels(fBatch)
+
+par(mfrow=c(1,1))
+boxplot.median.summary(oDiag.2, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
+plot.mean.summary(oDiag.2, fBatch, axis.label.cex = 0.5)
+plot.sigma.summary(oDiag.2, fBatch, axis.label.cex = 0.5)
+plot.missing.summary(oDiag.2, fBatch, axis.label.cex = 0.5, cex.main=1)
+plot.PCA(oDiag.2, fBatch, csLabels = '')
+plot.dendogram(oDiag.2, fBatch, labels_cex = 0.5)
+
+
+
+i = grep('gapdh', rownames(mData), ignore.case = T)
+mData[i,]
+library(DESeq2)
+sf = estimateSizeFactorsForMatrix(mData)
+sf2 = estimateSizeFactorsForMatrix(mData, controlGenes = i[1])
+sf2 = mData[i[1],]
+mData.norm.1 = sweep(mData, 2, sf, '/')
+mData.norm.2 = sweep(mData, 2, sf2, '/')
+identical(colnames(mData.norm.1), as.character(dfSample.2$fReplicates))
 identical(colnames(mData.norm.2), as.character(dfSample.2$fReplicates))
 
 ## compare the normalised and raw data
-oDiag.3 = CDiagnosticPlots(log(mData.norm+0.5), 'Normalised')
+oDiag.1 = CDiagnosticPlots(log(mData.norm.1+1), 'Normalised')
+oDiag.2 = CDiagnosticPlots((mData.norm.2+1), 'House Keeping')
+
 # the batch variable we wish to colour by, 
 # this can be any grouping/clustering in the data capture process
 str(dfSample.2)
 fBatch = factor(dfSample.2$group1):factor(dfSample.2$group2)
 levels(fBatch)
 ## compare the 2 methods using various plots
-par(mfrow=c(1,1))
+par(mfrow=c(2,2))
+boxplot.median.summary(oDiag.1, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
 boxplot.median.summary(oDiag.2, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
-boxplot.median.summary(oDiag.3, fBatch, legend.pos = 'topright', axis.label.cex = 0.5)
 
+plot.mean.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
 plot.mean.summary(oDiag.2, fBatch, axis.label.cex = 0.5)
-plot.mean.summary(oDiag.3, fBatch, axis.label.cex = 0.5)
 
+plot.sigma.summary(oDiag.1, fBatch, axis.label.cex = 0.5)
 plot.sigma.summary(oDiag.2, fBatch, axis.label.cex = 0.5)
-plot.sigma.summary(oDiag.3, fBatch, axis.label.cex = 0.5)
 
+plot.missing.summary(oDiag.1, fBatch, axis.label.cex = 0.5, cex.main=1)
 plot.missing.summary(oDiag.2, fBatch, axis.label.cex = 0.5, cex.main=1)
-plot.missing.summary(oDiag.3, fBatch, axis.label.cex = 0.5, cex.main=1)
 
 ## change parameters 
-l = CDiagnosticPlotsGetParameters(oDiag.3)
+l = CDiagnosticPlotsGetParameters(oDiag.1)
 l$PCA.jitter = F
 l$HC.jitter = F
 
-oDiag.3 = CDiagnosticPlotsSetParameters(oDiag.3, l)
+oDiag.1 = CDiagnosticPlotsSetParameters(oDiag.1, l)
+oDiag.2 = CDiagnosticPlotsSetParameters(oDiag.2, l)
+plot.PCA(oDiag.1, fBatch)
 plot.PCA(oDiag.2, fBatch)
-plot.PCA(oDiag.3, fBatch)
 plot.dendogram(oDiag.2, fBatch, labels_cex = 0.7)
 plot.dendogram(oDiag.3, fBatch, labels_cex = 0.7)
 
