@@ -18,7 +18,7 @@ q = paste0('select MetaFile.* from MetaFile
 dfSample = dbGetQuery(db, q)
 dfSample
 n = paste0(dfSample$location, dfSample$name)
-load(n)
+load(n[2])
 
 ## load the metadata i.e. covariates
 q = paste0('select Sample.* from Sample where Sample.idData = 43')
@@ -103,10 +103,10 @@ xtabs( ~ group2 + group1, data=dfSample.2)
 i = rowMeans(mData)
 table( i < 3)
 # FALSE  TRUE 
-# 14550 12645 
+# 20254  6941 
 mData = mData[!(i< 3),]
 dim(mData)
-# [1] 14550     4
+# [1] 20254     4
 
 ivProb = apply(mData, 1, function(inData) {
   inData[is.na(inData) | !is.finite(inData)] = 0
@@ -135,7 +135,7 @@ mData.norm.2 = sweep(mData, 2, sf.sub, '/')
 identical(colnames(mData.norm.2), as.character(dfSample.2$fReplicates))
 
 ## compare the normalised and raw data
-oDiag.3 = CDiagnosticPlots(log(mData.norm+0.5), 'Normalised')
+oDiag.3 = CDiagnosticPlots(log(mData.norm+1), 'Normalised')
 # the batch variable we wish to colour by, 
 # this can be any grouping/clustering in the data capture process
 str(dfSample.2)
@@ -167,7 +167,7 @@ plot.dendogram(oDiag.2, fBatch, labels_cex = 0.7)
 plot.dendogram(oDiag.3, fBatch, labels_cex = 0.7)
 
 #### compare the normalised data with batch normalised
-oDiag.4 = CDiagnosticPlots(log(mData.norm.2+0.5), 'Batch Normalised')
+oDiag.4 = CDiagnosticPlots(log(mData.norm.2+1), 'Batch Normalised')
 
 ## compare the 2 methods using various plots
 par(mfrow=c(1,1))
@@ -273,7 +273,7 @@ lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
                                               rep(3, times=nlevels(dfData$Coef.3))),
                  y=dfData$values)
 
-fit.stan.3 = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('betas', 'populationMean', 'sigmaPop', 'sigmaRan',
+fit.stan.3 = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('betas', 'populationMean', 'sigmaPop', 'sigmaRan',
                                                                            'nu', 'mu', 'log_lik'),
                       cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
 print(fit.stan.3, c('betas', 'populationMean', 'sigmaPop', 'sigmaRan', 'nu'), digits=3)
@@ -293,7 +293,7 @@ lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
                  ),
                  y=dfData$values)
 
-fit.stan.2 = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('betas', 'populationMean', 'sigmaPop', 'sigmaRan',
+fit.stan.2 = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('betas', 'populationMean', 'sigmaPop', 'sigmaRan',
                                                                            'nu', 'mu', 'log_lik'),
                       cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
 print(fit.stan.2, c('betas', 'populationMean', 'sigmaPop', 'sigmaRan', 'nu'), digits=3)

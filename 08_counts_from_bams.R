@@ -55,7 +55,7 @@ lFiles = split(dfSample$fp, dfSample$sid)
 lCounts = lapply(lFiles, function(bfl){
   ## create a bamfiles list object
   oBamFiles = BamFileList(bfl, index=paste0(bfl, '.bai'))
-  return(assays(summarizeOverlaps(oGRLgenes, oBamFiles, ignore.strand = F, singleEnd=F))$counts)
+  return(assays(summarizeOverlaps(oGRLgenes, oBamFiles, ignore.strand = F, singleEnd=F, preprocess.reads=invertStrand))$counts)
 })
 
 # sanity checks
@@ -65,16 +65,16 @@ names(lCounts) = dfSample$sid
 
 ## save the summarized experiment object
 setwd(gcswd)
-n = make.names(paste('lCounts rd did 43 alex rds'))
+n = make.names(paste('lCounts rd did 43 alex reverse rds'))
 n2 = paste0('~/Data/MetaData/', n)
 save(lCounts, file=n2)
 
 ## comment out after first time execution
-# library('RMySQL')
-# db = dbConnect(MySQL(), user='rstudio', password='12345', dbname='Projects', host='127.0.0.1')
-# dbListTables(db)
-# dbListFields(db, 'MetaFile')
-# df = data.frame(idData=g_did, name=n, type='rds', location='~/Data/MetaData/',
-#                 comment='list of Count matrix from alex human blaschkoid psoriasis project with quality 10 and duplicates removed')
-# dbWriteTable(db, name = 'MetaFile', value=df, append=T, row.names=F)
-# dbDisconnect(db)
+library('RMySQL')
+db = dbConnect(MySQL(), user='rstudio', password='12345', dbname='Projects', host='127.0.0.1')
+dbListTables(db)
+dbListFields(db, 'MetaFile')
+df = data.frame(idData=g_did, name=n, type='rds', location='~/Data/MetaData/',
+                comment='list of Count matrix from alex human blaschkoid psoriasis project with quality 10 and duplicates removed and strands reversed')
+dbWriteTable(db, name = 'MetaFile', value=df, append=T, row.names=F)
+dbDisconnect(db)

@@ -16,7 +16,7 @@ q = paste0('select MetaFile.* from MetaFile
 dfSample = dbGetQuery(db, q)
 dfSample
 n = paste0(dfSample$location, dfSample$name)
-load(n)
+load(n[2])
 
 ## load the metadata i.e. covariates
 q = paste0('select Sample.* from Sample where Sample.idData = 43')
@@ -62,10 +62,10 @@ dfSample.2 = droplevels.data.frame(dfSample.2)
 i = rowMeans(mData)
 table( i < 3)
 # FALSE  TRUE 
-# 14550 12645 
+# 20254  6941 
 mData = mData[!(i< 3),]
 dim(mData)
-# [1] 14550     4
+# [1] 20254     4
 
 ivProb = apply(mData, 1, function(inData) {
   inData[is.na(inData) | !is.finite(inData)] = 0
@@ -168,7 +168,7 @@ fit.stan = sampling(stanDso, data=lStanData, iter=1500, chains=4,
                            #'phi_scaled'
                            ),
                     cores=4, control=list(adapt_delta=0.99, max_treedepth = 11))#, init=initf)
-save(fit.stan, file='results/fit.stan.nb_16Dec.rds')
+save(fit.stan, file='results/fit.stan.nb_3Mar.rds')
 ptm.end = proc.time()
 print(fit.stan, c('sigmaRan1'), digits=3)
 print(fit.stan, c('phi'), digits=3)
@@ -249,7 +249,7 @@ identical(names(m), rownames(dfResults))
 plotMeanFC(log(m), dfResults, 0.01, 'lei vs nl')
 table(dfResults$adj.P.Val < 0.01)
 ## save the results 
-write.csv(dfResults, file='results/DEAnalysisLesionalVsNonLesional.xls')
+write.csv(dfResults, file='results/reverse/DEAnalysisLesionalVsNonLesional.xls')
 
 ######### do a comparison with deseq2
 str(dfSample.2)
