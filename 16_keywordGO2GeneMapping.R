@@ -20,7 +20,7 @@ q = paste0('select MetaFile.* from MetaFile
 dfSample = dbGetQuery(db, q)
 dfSample
 n = paste0(dfSample$location, dfSample$name)
-load(n)
+load(n[2])
 
 ## load the metadata i.e. covariates
 q = paste0('select Sample.* from Sample where Sample.idData = 43')
@@ -66,10 +66,10 @@ dfSample.2 = droplevels.data.frame(dfSample.2)
 i = rowMeans(mData)
 table( i < 3)
 # FALSE  TRUE 
-# 14550 12645 
+# 20254  6941 
 mData = mData[!(i< 3),]
 dim(mData)
-# [1] 14550     4
+# [1] 20254     4
 
 ivProb = apply(mData, 1, function(inData) {
   inData[is.na(inData) | !is.finite(inData)] = 0
@@ -91,7 +91,7 @@ library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-load(file='results/fit.stan.nb_16Dec.rds')
+load(file='results/fit.stan.nb_3Mar.rds')
 
 ## format data to extract
 dfData = data.frame(t(mData.norm))
@@ -137,7 +137,7 @@ head(d)
 str(d)
 
 ## load the common binary matrix of DE genes created in earlier results
-dfCommonGenes = read.csv('results/commonDEGenes.xls', header=T, row.names=1)
+dfCommonGenes = read.csv('results/reverse/commonDEGenes.xls', header=T, row.names=1)
 head(dfCommonGenes)
 
 
@@ -198,7 +198,7 @@ lGO.results = lapply(iGroups, function(group){
 
 names(lGO.results) = iGroups
 
-oFile.go = file('results/GO_groups.csv', 'wt')
+oFile.go = file('results/reverse/GO_groups.csv', 'wt')
 temp = sapply(as.character(iGroups), function(group){
   p1 = paste('Contrast Comparison group ', group)
   df = summary(lGO.results[[group]])
@@ -216,7 +216,7 @@ close(oFile.go)
 
 #######################################################
 ####### find particular types of genes from pathway keyword search
-#dfGO = AnnotationDbi::select(org.Hs.eg.db, keys = 'SERPINB11', columns = c('GO'), keytype = 'SYMBOL')
+#dfGO = AnnotationDbi::select(org.Hs.eg.db, keys = 'HEPHL1', columns = c('GO'), keytype = 'SYMBOL')
 dfGO = AnnotationDbi::select(org.Hs.eg.db, keys = rownames(dfCommonGenes), columns = c('GO'), keytype = 'ENTREZID')
 dfGO = dfGO[dfGO$ONTOLOGY == 'BP', ]
 dfGO = na.omit(dfGO)
@@ -227,7 +227,7 @@ columns(GO.db)
 dfGO = AnnotationDbi::select(GO.db, keys=as.character(unique(dfGO$GO)), columns=columns(GO.db), keytype='GOID')
 dim(dfGO)
 ## keyword search
-i = grep('transcription factor', dfGO$DEFINITION, ignore.case = T)
+i = grep('cornification', dfGO$DEFINITION, ignore.case = T)
 length(i)
 temp = dfGO[i,]
 
@@ -259,7 +259,7 @@ d.bk$differentiated = factor(d.bk$fBatch, levels=c('Non-lesional', 'Lesional'))
 
 library(lattice)
 xyplot(coef ~ differentiated | SYMBOL, data=d.bk, type=c('l', 'p'), scales=list(relation='free', x=list(cex=0.7), y=list(cex=0.7)), 
-       ylab='Model Estimated log Average', main=list(label='profile of genes sharing GO terms with FLG', cex=0.8),
+       ylab='Model Estimated log Average', main=list(label='profile of GO keyword: transcription factor', cex=0.8),
        xlab='Condition')
 
 ## cluster the data on trends of expression
@@ -275,7 +275,7 @@ i = match(as.character(d.bk$SYMBOL), names(c))
 d.bk$SYMBOL.cluster = factor(c[i]):factor(d.bk$SYMBOL)
 
 xyplot(coef ~ differentiated | SYMBOL.cluster, data=d.bk, type=c('l', 'p'), scales=list(relation='free', x=list(cex=0.7), y=list(cex=0.7)), 
-       ylab='Model Estimated log Average', main=list(label='profile of genes sharing GO terms with SERPINB11', cex=0.8),
+       ylab='Model Estimated log Average', main=list(label='profile of GO keyword: Cornification', cex=0.8),
        xlab='Condition')
 
 # dim(m)

@@ -5,7 +5,7 @@
 
 source('header.R')
 
-lFiles = list.files('results/', pattern='DEAnalysis*', full.names = T, ignore.case = T)
+lFiles = list.files('results/reverse/', pattern='DEAnalysis*', full.names = T, ignore.case = T)
 
 ldfData = lapply(lFiles, function(x) as.data.frame(read.csv(x, header=T, row.names=1, stringsAsFactors = F)))
 names(ldfData) = lFiles
@@ -21,7 +21,7 @@ ldfData = lapply(ldfData, function(df){
 
 sapply(ldfData, function(df) identical(rownames(df), rn))
 
-cvTitle = gsub('results//DEAnalysis', '', names(ldfData))
+cvTitle = gsub('results/reverse//DEAnalysis', '', names(ldfData))
 cvTitle = gsub('.xls', '', cvTitle)
 
 for (i in seq_along(cvTitle)){
@@ -124,4 +124,4 @@ df = AnnotationDbi::select(org.Hs.eg.db, keys = rownames(dfCommonGenes), columns
 identical(rownames(dfCommonGenes), df$ENTREZID)
 dfCommonGenes$GENENAME = df$GENENAME
 
-write.csv(dfCommonGenes, file='results/commonDEGenes.xls')
+write.csv(dfCommonGenes, file='results/reverse/commonDEGenes.xls')

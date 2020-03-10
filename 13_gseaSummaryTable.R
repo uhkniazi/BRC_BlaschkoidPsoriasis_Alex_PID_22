@@ -4,7 +4,7 @@
 # Date: 18/12/2019
 
 
-lFiles = list.files('results/', pattern='*pathways_mSigDb_c2_*', full.names = T, ignore.case = F)
+lFiles = list.files('results/reverse/', pattern='*pathways_mSigDb_c2_*', full.names = T, ignore.case = F)
 
 # load the files
 ldfData = lapply(lFiles, function(x) read.csv(x, row.names=1))
@@ -23,10 +23,10 @@ ldfData.up = ldfData[grepl(lFiles, pattern = 'upregulated')]
 ldfData.down = ldfData[grepl(lFiles, pattern = 'downregulated')]
 
 ## set the names for each contrast
-sn = gsub('results//(.+Vs.+)_up.+', '\\1', names(ldfData.up))
+sn = gsub('results/reverse//(.+Vs.+)_up.+', '\\1', names(ldfData.up))
 names(ldfData.up) = sn
 
-sn = gsub('results//(.+Vs.+)_down.+', '\\1', names(ldfData.down))
+sn = gsub('results/reverse//(.+Vs.+)_down.+', '\\1', names(ldfData.down))
 names(ldfData.down) = sn
 
 ## create a table/matrix of p-values
@@ -94,7 +94,7 @@ head(dfMerged.c2)
 tail(dfMerged.c2)
 
 ### repeat for the C5 database
-lFiles = list.files('results/', pattern='*pathways_mSigDb_c5.xls', full.names = T, ignore.case = F)
+lFiles = list.files('results/reverse/', pattern='*pathways_mSigDb_c5.xls', full.names = T, ignore.case = F)
 
 # load the files
 ldfData = lapply(lFiles, function(x) read.csv(x, row.names=1))
@@ -113,10 +113,10 @@ ldfData.up = ldfData[grepl(lFiles, pattern = 'upregulated')]
 ldfData.down = ldfData[grepl(lFiles, pattern = 'downregulated')]
 
 ## set the names for each contrast
-sn = gsub('results//(.+Vs.+)_up.+', '\\1', names(ldfData.up))
+sn = gsub('results/reverse//(.+Vs.+)_up.+', '\\1', names(ldfData.up))
 names(ldfData.up) = sn
 
-sn = gsub('results//(.+Vs.+)_down.+', '\\1', names(ldfData.down))
+sn = gsub('results/reverse//(.+Vs.+)_down.+', '\\1', names(ldfData.down))
 names(ldfData.down) = sn
 
 ## create a table/matrix of p-values
@@ -187,8 +187,8 @@ tail(dfMerged.c5)
 
 identical(colnames(dfMerged.c2), colnames(dfMerged.c5))
 
-write.csv(dfMerged.c2, file='results/gsea_msigdb_c2_merged.xls')
-write.csv(dfMerged.c5, file='results/gsea_msigdb_c5_merged.xls')
+write.csv(dfMerged.c2, file='results/reverse/gsea_msigdb_c2_merged.xls')
+write.csv(dfMerged.c5, file='results/reverse/gsea_msigdb_c5_merged.xls')
 
 ## merge together into one dataframe
 # drop the group with most zeros
@@ -204,7 +204,7 @@ dfMerged = rbind(dfMerged.c2.sub, dfMerged.c5.sub)
 dfMerged = droplevels.data.frame(dfMerged)
 dim(dfMerged)
 
-write.csv(dfMerged, file='results/gsea_msigdb_significant_c2_c5_merged.xls')
+write.csv(dfMerged, file='results/reverse/gsea_msigdb_significant_c2_c5_merged.xls')
 
 ### heatmaps
 ### just for a quick visual check, do not use for results
@@ -234,7 +234,7 @@ library(RColorBrewer)
 aheatmap(mMat, annRow = NA, scale = 'none', Rowv = order(g2:g1), Colv=NA, cexRow=5, cexCol = 0.6, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
 
-pdf('results/gsea_msigdb_significant_merged.pdf')
+pdf('results/reverse/gsea_msigdb_significant_merged.pdf')
 aheatmap(mMat, annRow = NA, scale = 'none', Rowv = order(g2:g1), Colv=NA, cexRow=5, cexCol = 0.6, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
 aheatmap(mMat, annRow = ann, scale = 'none', Rowv = order(g2:g1), Colv=NA, cexRow=5, cexCol = 0.6, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 

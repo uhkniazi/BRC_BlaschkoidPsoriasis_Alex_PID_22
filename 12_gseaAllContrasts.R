@@ -8,7 +8,7 @@
 ## libraries to load
 library(gage)
 
-lFiles = list.files('results/', pattern='DEAnalysis*', full.names = T, ignore.case = T)
+lFiles = list.files('results/reverse/', pattern='DEAnalysis*', full.names = T, ignore.case = T)
 
 ldfData = lapply(lFiles, function(x) as.data.frame(read.csv(x, header=T, row.names=1, stringsAsFactors = F)))
 names(ldfData) = lFiles
@@ -56,7 +56,7 @@ sapply(ldfData, function(df) identical(rownames(df), rn))
 # sapply(ldfData, function(df) identical(rownames(df), rn))
 
 #cvTitle = gsub('results//DEAnalysis(\\w+).xls', '\\1', names(ldfData))
-cvTitle = gsub('results//DEAnalysis', '', names(ldfData))
+cvTitle = gsub('results/reverse//DEAnalysis', '', names(ldfData))
 cvTitle = gsub('.xls', '', cvTitle)
 
 ## load msig db data - c2 and c5
@@ -84,8 +84,8 @@ for (i in 1:length(ldfData)){
   #i = which(dfLess$p.val < 0.01)
   #rownames(dfLess[i,])
   
-  write.csv(dfGreater[,c('p.val', 'q.val', 'set.size')], file=paste('results/', cvTitle[i], '_upregulated_pathways_mSigDb_c2_curated.xls', sep=''))
-  write.csv(dfLess[,c('p.val', 'q.val', 'set.size')], file=paste('results/', cvTitle[i], '_downregulated_pathways_mSigDb_c2_curated.xls', sep=''))
+  write.csv(dfGreater[,c('p.val', 'q.val', 'set.size')], file=paste('results/reverse/', cvTitle[i], '_upregulated_pathways_mSigDb_c2_curated.xls', sep=''))
+  write.csv(dfLess[,c('p.val', 'q.val', 'set.size')], file=paste('results/reverse/', cvTitle[i], '_downregulated_pathways_mSigDb_c2_curated.xls', sep=''))
   
   ## c5
   oGage = gage(iContFc, oMsigGS.c5)
@@ -93,6 +93,6 @@ for (i in 1:length(ldfData)){
   dfGreater = data.frame(oGage$greater)
   dfLess = data.frame(oGage$less)
   
-  write.csv(dfGreater[,c('p.val', 'q.val', 'set.size')], file=paste('results/', cvTitle[i], '_upregulated_pathways_mSigDb_c5.xls', sep=''))
-  write.csv(dfLess[,c('p.val', 'q.val', 'set.size')], file=paste('results/', cvTitle[i], '_downregulated_pathways_mSigDb_c5.xls', sep=''))
+  write.csv(dfGreater[,c('p.val', 'q.val', 'set.size')], file=paste('results/reverse/', cvTitle[i], '_upregulated_pathways_mSigDb_c5.xls', sep=''))
+  write.csv(dfLess[,c('p.val', 'q.val', 'set.size')], file=paste('results/reverse/', cvTitle[i], '_downregulated_pathways_mSigDb_c5.xls', sep=''))
 }
