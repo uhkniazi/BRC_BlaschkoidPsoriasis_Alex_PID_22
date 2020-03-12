@@ -152,12 +152,14 @@ plot.missing.summary(oDiag.study, fBatch, axis.label.cex = 0.5, cex.main=1)
 plot.PCA(oDiag.study, fBatch, csLabels = '')
 plot.dendogram(oDiag.study, fBatch, labels_cex = 0.5)
 
-## choose some genes and plot
+## choose some house keeping genes and plot
 cvGeneList = c('UBC', 'SDHA', 'CYC1', 'CANX', 'TBP',
                'YWHAZ', 'B2M', 'RPLP2', 'GAPDH')
+
+cvGeneList = scan(what=character())
 mData.sub = mData.merged[rownames(mData.merged) %in% cvGeneList, ]
 dim(mData.sub)
-
+cvGeneList = rownames(mData.sub)
 ## plot these genes
 library(lattice)
 df = data.frame(t(log(mData.sub+1)))
@@ -179,48 +181,48 @@ options(mc.cores = parallel::detectCores())
 stanDso = rstan::stan_model(file='nbResponsePartialPooling.stan')
 
 ############### create data for input
-dfData = data.frame(y = mData.norm.1[cvGeneList[1],])
-str(dfData)
-str(dfSample.2)
-dfData$fTreatment = factor(dfSample.2$group1)
-dfData$fPatient = factor(dfSample.2$group2)
-
-str(dfData)
-m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
-m2 = model.matrix(y ~ fPatient - 1, data=dfData)
-m = cbind(m1, m2)
-
-lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
-                 NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
-                                              rep(2, times=nlevels(dfData$fPatient))),
-                 y=as.integer(dfData$y))
-
-fit.stan.1 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
-                                                                            'phi', 'mu'),
-                      cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
-
-traceplot(fit.stan.1, 'populationMean')
-traceplot(fit.stan.1, 'betas')
-traceplot(fit.stan.1, 'sigmaRan')
-
-######## second data set
-dfData = data.frame(y = mData.norm.2[cvGeneList[1],])
-str(dfData)
-str(dfSample.study)
-dfData$fTreatment = factor(dfSample.study$Sample.Characteristic.disease.)
-
-str(dfData)
-m = model.matrix(y ~ fTreatment - 1, data=dfData)
-
-lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
-                 NscaleBatches=1, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment))),
-                 y=as.integer(dfData$y))
-
-fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
-                                                                           'phi', 'mu'),
-                      cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+# dfData = data.frame(y = mData.norm.1[cvGeneList[1],])
+# str(dfData)
+# str(dfSample.2)
+# dfData$fTreatment = factor(dfSample.2$group1)
+# dfData$fPatient = factor(dfSample.2$group2)
+# 
+# str(dfData)
+# m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
+# m2 = model.matrix(y ~ fPatient - 1, data=dfData)
+# m = cbind(m1, m2)
+# 
+# lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
+#                  NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
+#                                               rep(2, times=nlevels(dfData$fPatient))),
+#                  y=as.integer(dfData$y))
+# 
+# fit.stan.1 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
+#                                                                             'phi', 'mu'),
+#                       cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
+# print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+# 
+# traceplot(fit.stan.1, 'populationMean')
+# traceplot(fit.stan.1, 'betas')
+# traceplot(fit.stan.1, 'sigmaRan')
+# 
+# ######## second data set
+# dfData = data.frame(y = mData.norm.2[cvGeneList[1],])
+# str(dfData)
+# str(dfSample.study)
+# dfData$fTreatment = factor(dfSample.study$Sample.Characteristic.disease.)
+# 
+# str(dfData)
+# m = model.matrix(y ~ fTreatment - 1, data=dfData)
+# 
+# lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
+#                  NscaleBatches=1, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment))),
+#                  y=as.integer(dfData$y))
+# 
+# fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
+#                                                                            'phi', 'mu'),
+#                       cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
+# print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
 
 ## function to calculate statistics for differences between coefficients
 getDifference = function(ivData, ivBaseline){
@@ -241,39 +243,37 @@ getDifferenceVector = function(ivData, ivBaseline){
   return(d)
 }
 
-mCoef1 = extract(fit.stan.1)$betas[,1:2]
-mCoef2 = extract(fit.stan.2)$betas
-
-colnames(mCoef1) = levels(factor(dfSample.2$group1))
-colnames(mCoef2) = levels(factor(dfSample.study$Sample.Characteristic.disease.))
-
-dif1 = getDifferenceVector(ivData = mCoef1[,'Lesional'], ivBaseline = mCoef1[,'Non-lesional'])
-dif2 = getDifferenceVector(ivData = mCoef2[,'psoriasis'], ivBaseline = mCoef2[,'normal'])
-dif = getDifference(ivData = dif1, ivBaseline = dif2)
-r = data.frame(ind= cvGeneList[1], lVSnl=mean(dif1), 
-                 psoVSnor=mean(dif2), difference=mean(dif1-dif2),
-                 zscore=dif$z, pvalue=dif$p)
-dfData = data.frame(blas=dif1, psor=dif2)
-dfData = stack(dfData)
-
-bwplot(values ~ ind, data=dfData, panel=panel.violin, type='b',
-       par.strip.text=list(cex=0.7), varwidth=F, main='Log Fold difference - disease vs healthy skin')
-
-bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-       par.strip.text=list(cex=0.7), varwidth=T, main='Log Fold difference - disease vs healthy skin')
+# mCoef1 = extract(fit.stan.1)$betas[,1:2]
+# mCoef2 = extract(fit.stan.2)$betas
+# 
+# colnames(mCoef1) = levels(factor(dfSample.2$group1))
+# colnames(mCoef2) = levels(factor(dfSample.study$Sample.Characteristic.disease.))
+# 
+# dif1 = getDifferenceVector(ivData = mCoef1[,'Lesional'], ivBaseline = mCoef1[,'Non-lesional'])
+# dif2 = getDifferenceVector(ivData = mCoef2[,'psoriasis'], ivBaseline = mCoef2[,'normal'])
+# dif = getDifference(ivData = dif1, ivBaseline = dif2)
+# r = data.frame(ind= cvGeneList[1], lVSnl=mean(dif1), 
+#                  psoVSnor=mean(dif2), difference=mean(dif1-dif2),
+#                  zscore=dif$z, pvalue=dif$p)
+# dfData = data.frame(blas=dif1, psor=dif2)
+# dfData = stack(dfData)
+# 
+# bwplot(values ~ ind, data=dfData, panel=panel.violin, type='b',
+#        par.strip.text=list(cex=0.7), varwidth=F, main='Log Fold difference - disease vs healthy skin')
+# 
+# bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+#        par.strip.text=list(cex=0.7), varwidth=T, main='Log Fold difference - disease vs healthy skin')
 
 
 dfResults = data.frame()
+pdf('temp/figs.pdf')
 ############################################ repeat this analysis in a loop for various genes
 for (i in seq_along(cvGeneList)){
   ############### create data for input
   dfData = data.frame(y = mData.norm.1[cvGeneList[i],])
-  str(dfData)
-  str(dfSample.2)
   dfData$fTreatment = factor(dfSample.2$group1)
   dfData$fPatient = factor(dfSample.2$group2)
   
-  str(dfData)
   m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
   m2 = model.matrix(y ~ fPatient - 1, data=dfData)
   m = cbind(m1, m2)
@@ -288,17 +288,10 @@ for (i in seq_along(cvGeneList)){
                         cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
   print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
   
-  traceplot(fit.stan.1, 'populationMean')
-  traceplot(fit.stan.1, 'betas')
-  traceplot(fit.stan.1, 'sigmaRan')
-  
   ######## second data set
   dfData = data.frame(y = mData.norm.2[cvGeneList[i],])
-  str(dfData)
-  str(dfSample.study)
   dfData$fTreatment = factor(dfSample.study$Sample.Characteristic.disease.)
   
-  str(dfData)
   m = model.matrix(y ~ fTreatment - 1, data=dfData)
   
   lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
@@ -325,13 +318,14 @@ for (i in seq_along(cvGeneList)){
   dfData = data.frame(blas=dif1, psor=dif2)
   dfData = stack(dfData)
   
-  print(bwplot(values ~ ind, data=dfData, panel=panel.violin, type='b',
-         par.strip.text=list(cex=0.7), varwidth=F, main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
-  
   dfResults = rbind(dfResults, r)
-  # bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-  #        par.strip.text=list(cex=0.7), varwidth=T, main='Log Fold difference - disease vs healthy skin')
+  yl = unlist(tapply(dfData$values, INDEX = dfData$ind, quantile, prob=c(0.05, 0.95)))
+  print(bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+         par.strip.text=list(cex=0.7), varwidth=F, do.out=F,
+         ylim=c(min(yl)-0.5, max(yl)+0.5),
+         main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
 }
+dev.off(dev.cur())
 ###################
 
 
