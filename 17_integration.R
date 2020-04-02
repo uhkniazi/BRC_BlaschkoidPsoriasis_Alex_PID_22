@@ -39,16 +39,6 @@ identical(dfSample$id, as.integer(colnames(mCounts)))
 mData = mCounts
 dim(mData)
 
-## some EDA on raw data before merging replicates
-library(downloader)
-url = 'https://raw.githubusercontent.com/uhkniazi/CDiagnosticPlots/master/CDiagnosticPlots.R'
-download(url, 'CDiagnosticPlots.R')
-
-# load the required packages
-source('CDiagnosticPlots.R')
-# delete the file after source
-unlink('CDiagnosticPlots.R')
-
 ## use combination of batch and biological source as identifier for technical replicates
 fReplicates = factor(dfSample$group1):factor(dfSample$group2)
 levels(fReplicates)
@@ -93,8 +83,8 @@ identical(rownames(mData), df$ENTREZID)
 rownames(mData) = df$SYMBOL
 
 ############### load the second data set
-dfStudy.meta = read.csv('dataExternal/E-GEOD-41745/E-GEOD-41745-experiment-design.tsv', header=T, sep='\t')
-dfStudy.counts = read.csv('dataExternal/E-GEOD-41745/E-GEOD-41745-raw-counts.tsv', header=T, sep='\t')
+dfStudy.meta = read.csv('dataExternal/E-GEOD-54456-experiment-design.tsv', header=T, sep='\t')
+dfStudy.counts = read.csv('dataExternal/E-GEOD-54456-raw-counts.tsv', header=T, sep='\t')
 mData.study = as.matrix(dfStudy.counts[,-c(1,2)])
 rownames(mData.study) = as.character(dfStudy.counts$Gene.Name)
 
@@ -135,6 +125,15 @@ mData.merged = cbind(mData.norm.1, mData.norm.2)
 fGroups = c(as.character(dfSample.2$group1), as.character(dfSample.study$Factor.Value.phenotype.))
 fGroups = factor(fGroups)
 levels(fGroups)
+
+library(downloader)
+url = 'https://raw.githubusercontent.com/uhkniazi/CDiagnosticPlots/master/CDiagnosticPlots.R'
+download(url, 'CDiagnosticPlots.R')
+
+# load the required packages
+source('CDiagnosticPlots.R')
+# delete the file after source
+unlink('CDiagnosticPlots.R')
 ## check matrix structure
 oDiag.study = CDiagnosticPlots(log(mData.norm.2+1), 'normalised study')
 l = CDiagnosticPlotsGetParameters(oDiag.study)
@@ -269,6 +268,7 @@ dfResults = data.frame()
 pdf('temp/figs.pdf')
 ############################################ repeat this analysis in a loop for various genes
 for (i in seq_along(cvGeneList)){
+  cat('doing number ....', i, '\n')
   ############### create data for input
   dfData = data.frame(y = mData.norm.1[cvGeneList[i],])
   dfData$fTreatment = factor(dfSample.2$group1)
@@ -290,16 +290,12 @@ for (i in seq_along(cvGeneList)){
   
   ######## second data set
   dfData = data.frame(y = mData.norm.2[cvGeneList[i],])
-  dfData$fTreatment = factor(dfSample.study$Factor.Value.phenotype.)
-  dfData$fPatient = factor(dfSample.study$Sample.Characteristic.individual.)
+  dfData$fTreatment = factor(dfSample.study$Sample.Characteristic.disease.)
   
-  m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
-  m2 = model.matrix(y ~ fPatient - 1, data=dfData)
-  m = cbind(m1, m2)
+  m = model.matrix(y ~ fTreatment - 1, data=dfData)
   
   lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
-                   NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
-                                                rep(2, times=nlevels(dfData$fPatient))),
+                   NscaleBatches=1, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment))),
                    y=as.integer(dfData$y))
   
   fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
@@ -308,13 +304,13 @@ for (i in seq_along(cvGeneList)){
   print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
   
   mCoef1 = extract(fit.stan.1)$betas[,1:2]
-  mCoef2 = extract(fit.stan.2)$betas[,1:2]
+  mCoef2 = extract(fit.stan.2)$betas
   
   colnames(mCoef1) = levels(factor(dfSample.2$group1))
-  colnames(mCoef2) = levels(factor(dfSample.study$Factor.Value.phenotype.))
+  colnames(mCoef2) = levels(factor(dfSample.study$Sample.Characteristic.disease.))
   
   dif1 = getDifferenceVector(ivData = mCoef1[,'Lesional'], ivBaseline = mCoef1[,'Non-lesional'])
-  dif2 = getDifferenceVector(ivData = mCoef2[,'lesional'], ivBaseline = mCoef2[,'non-lesional'])
+  dif2 = getDifferenceVector(ivData = mCoef2[,'psoriasis'], ivBaseline = mCoef2[,'normal'])
   dif = getDifference(ivData = dif1, ivBaseline = dif2)
   r = data.frame(ind= cvGeneList[i], lVSnl=mean(dif1), 
                  psoVSnor=mean(dif2), difference=mean(dif1-dif2),
@@ -325,10 +321,11 @@ for (i in seq_along(cvGeneList)){
   dfResults = rbind(dfResults, r)
   yl = unlist(tapply(dfData$values, INDEX = dfData$ind, quantile, prob=c(0.05, 0.95)))
   print(bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-         par.strip.text=list(cex=0.7), varwidth=F, do.out=F,
-         ylim=c(min(yl)-0.5, max(yl)+0.5),
-         main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
+               par.strip.text=list(cex=0.7), varwidth=F, do.out=F,
+               ylim=c(min(yl)-0.5, max(yl)+0.5),
+               main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
 }
 dev.off(dev.cur())
+write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-54456.csv')
 ###################
 
