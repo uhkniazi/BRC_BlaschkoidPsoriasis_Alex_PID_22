@@ -29,6 +29,9 @@ rownames(mData) = df417$Symbol
 range(mData)
 quantile(as.vector(mData), 0:20/20)
 
+mData[mData < -2] = -2
+mData[mData > 3] = 3
+
 library(NMF)
 library(RColorBrewer)
 
@@ -36,7 +39,7 @@ aheatmap(mData, annRow = NA, scale = 'none', Rowv = T,
          Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
 
-cvSig = df417$Symbol[df417$pvalue < 0.1]
+cvSig = df417$Symbol[df417$pvalue < 0.01]
 length(cvSig)
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, 
          Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
@@ -50,7 +53,43 @@ aheatmap(mData, annRow = NA, scale = 'none', Rowv = T,
 cvSig = df417$Symbol[df417$pvalue < 0.1]
 length(cvSig)
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, 
-         Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
+         Colv=T, cexRow=2, cexCol = 2, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
 dev.off(dev.cur())
 
+cvSig = df417$Symbol[df417$pvalue < 0.001]
+length(cvSig)
+aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, 
+         Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
+         col=c('white', brewer.pal(9, 'YlOrRd')))
+
+cvSig = df544$ind[df544$pvalue < 0.001]
+length(cvSig)
+aheatmap(mData[cvSel,], annRow = NA, scale = 'none', Rowv = T, 
+         Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
+         col=c('white', brewer.pal(9, 'YlOrRd')))
+
+### cluster using a subset of genes
+hc = hclust(dist(t(mData[cvSig,])))
+plot(hc)
+
+getDistance = function(m){
+   d = as.matrix(dist(t(m)))
+   d1 = (d['bl', 's417'])
+   d2 = (d['s544', 's417'])
+   return(d1 - d2)
+}
+
+simulateOne = function(){
+  c = sample(rownames(mData), size = length(cvSig), replace = F)
+  return(getDistance(mData[c,]))# < 0)
+}
+
+ivDist = replicate(1000, simulateOne())
+
+## calculate bayesian p-value for this test statistic
+getPValue = function(Trep, Tobs){
+  left = sum(Trep <= Tobs)/length(Trep)
+  right = sum(Trep >= Tobs)/length(Trep)
+  return(min(left, right))
+}
