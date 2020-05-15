@@ -227,11 +227,12 @@ stanDso = rstan::stan_model(file='nbResponsePartialPooling.stan')
 getDifference = function(ivData, ivBaseline){
   stopifnot(length(ivData) == length(ivBaseline))
   # get the difference vector
-  d = ivData - ivBaseline
+  d = mean(ivData) - mean(ivBaseline)
+  t = t.test(ivData, ivBaseline)
   # get the z value
-  z = mean(d)/sd(d)
+  z = t$statistic
   # get 2 sided p-value
-  p = pnorm(-abs(mean(d)/sd(d)))*2
+  p = t$p.value
   return(list(z=z, p=p))
 }
 
@@ -265,7 +266,7 @@ getDifferenceVector = function(ivData, ivBaseline){
 
 
 dfResults = data.frame()
-pdf('temp/figs.pdf')
+#pdf('temp/figs.pdf')
 ############################################ repeat this analysis in a loop for various genes
 for (i in seq_along(cvGeneList)){
   cat('doing number ....', i, '\n')
@@ -286,7 +287,7 @@ for (i in seq_along(cvGeneList)){
   fit.stan.1 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
                                                                              'phi', 'mu'),
                         cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-  print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+  #print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
   
   ######## second data set
   dfData = data.frame(y = mData.norm.2[cvGeneList[i],])
@@ -301,7 +302,7 @@ for (i in seq_along(cvGeneList)){
   fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
                                                                              'phi', 'mu'),
                         cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-  print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+  #print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
   
   mCoef1 = extract(fit.stan.1)$betas[,1:2]
   mCoef2 = extract(fit.stan.2)$betas
@@ -313,19 +314,27 @@ for (i in seq_along(cvGeneList)){
   dif2 = getDifferenceVector(ivData = mCoef2[,'psoriasis'], ivBaseline = mCoef2[,'normal'])
   dif = getDifference(ivData = dif1, ivBaseline = dif2)
   r = data.frame(ind= cvGeneList[i], lVSnl=mean(dif1), 
-                 psoVSnor=mean(dif2), difference=mean(dif1-dif2),
-                 zscore=dif$z, pvalue=dif$p)
-  dfData = data.frame(blas=dif1, psor=dif2)
-  dfData = stack(dfData)
-  
+                 psoVSnor=mean(dif2), difference=mean(dif1)-mean(dif2),
+                 tstatistic=dif$z, pvalue=dif$p)
+  # dfData = data.frame(blas=dif1, psor=dif2)
+  # dfData = stack(dfData)
+  # 
   dfResults = rbind(dfResults, r)
-  yl = unlist(tapply(dfData$values, INDEX = dfData$ind, quantile, prob=c(0.05, 0.95)))
-  print(bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-               par.strip.text=list(cex=0.7), varwidth=F, do.out=F,
-               ylim=c(min(yl)-0.5, max(yl)+0.5),
-               main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
+  # yl = unlist(tapply(dfData$values, INDEX = dfData$ind, quantile, prob=c(0.05, 0.95)))
+  # print(bwplot(values ~ ind, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+  #              par.strip.text=list(cex=0.7), varwidth=F, do.out=F,
+  #              ylim=c(min(yl)-0.5, max(yl)+0.5),
+  #              main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
 }
-dev.off(dev.cur())
-write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-54456.csv')
+#dev.off(dev.cur())
+write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-54456_.csv')
 ###################
+library(org.Hs.eg.db)
+df = AnnotationDbi::select(org.Hs.eg.db, keys = as.character(dfResults$ind), 
+                           keytype = 'SYMBOL', columns = 'ENTREZID')
+i = match(as.character(dfResults$ind), df$SYMBOL)
+df = df[i,]
+identical(as.character(dfResults$ind), df$SYMBOL)
+dfResults$ENTREZID = df$ENTREZID
 
+write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-54456_2.csv')
