@@ -228,12 +228,11 @@ stanDso = rstan::stan_model(file='nbResponsePartialPooling.stan')
 getDifference = function(ivData, ivBaseline){
   stopifnot(length(ivData) == length(ivBaseline))
   # get the difference vector
-  d = mean(ivData) - mean(ivBaseline)
-  t = t.test(ivData, ivBaseline)
+  d = ivData - ivBaseline
   # get the z value
-  z = t$statistic
+  z = mean(d)/sd(d)
   # get 2 sided p-value
-  p = t$p.value
+  p = pnorm(-abs(mean(d)/sd(d)))*2
   return(list(z=z, p=p))
 }
 
@@ -271,55 +270,64 @@ dfResults = data.frame()
 ############################################ repeat this analysis in a loop for various genes
 for (i in seq_along(cvGeneList)){
   ############### create data for input
-  dfData = data.frame(y = mData.norm.1[cvGeneList[i],])
-  dfData$fTreatment = factor(dfSample.2$group1)
-  dfData$fPatient = factor(dfSample.2$group2)
   
-  m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
+  dfData = data.frame(y = mData.sub[cvGeneList[i],])
+  f1 = c(dfSample.2$group1, as.character(dfSample.study$Factor.Value.phenotype.))
+  f1[grep('^lesional', f1, ignore.case = T)] = 'lesional'
+  f1[grep('^non', f1, ignore.case = T)] = 'non-lesional'
+  dfData$fTreatment = factor(f1)
+  f2 = c(dfSample.2$group2, as.character(dfSample.study$Sample.Characteristic.individual.))
+  dfData$fPatient = factor(f2)
+  f3 = c(rep(1, times=4), rep(2, times=6))
+  dfData$batch = factor(f3)
+  
+  m1 = model.matrix(y ~ fTreatment:batch - 1, data=dfData)
   m2 = model.matrix(y ~ fPatient - 1, data=dfData)
   m = cbind(m1, m2)
   
   lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
-                   NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
-                                                rep(2, times=nlevels(dfData$fPatient))),
+                   NscaleBatches=4, NBatchMap=c(rep(1, times=2),
+                                                rep(2, times=2),
+                                                rep(3, times=2),
+                                                rep(4, times=3)),
                    y=as.integer(dfData$y))
   
   fit.stan.1 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
                                                                              'phi', 'mu'),
                         cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-  #print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+#  print(fit.stan.1, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
   
-  ######## second data set
-  dfData = data.frame(y = mData.norm.2[cvGeneList[i],])
-  dfData$fTreatment = factor(dfSample.study$Factor.Value.phenotype.)
-  dfData$fPatient = factor(dfSample.study$Sample.Characteristic.individual.)
+  # ######## second data set
+  # dfData = data.frame(y = mData.norm.2[cvGeneList[i],])
+  # dfData$fTreatment = factor(dfSample.study$Factor.Value.phenotype.)
+  # dfData$fPatient = factor(dfSample.study$Sample.Characteristic.individual.)
+  # 
+  # m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
+  # m2 = model.matrix(y ~ fPatient - 1, data=dfData)
+  # m = cbind(m1, m2)
+  # 
+  # lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
+  #                  NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
+  #                                               rep(2, times=nlevels(dfData$fPatient))),
+  #                  y=as.integer(dfData$y))
+  # 
+  # fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
+  #                                                                            'phi', 'mu'),
+  #                       cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
+  # #print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
+  # 
+  mCoef1 = extract(fit.stan.1)$betas[,1:4]
+  # mCoef2 = extract(fit.stan.2)$betas[,1:2]
   
-  m1 = model.matrix(y ~ fTreatment - 1, data=dfData)
-  m2 = model.matrix(y ~ fPatient - 1, data=dfData)
-  m = cbind(m1, m2)
-  
-  lStanData = list(Ntotal=nrow(dfData), Ncol=ncol(m), X=m,
-                   NscaleBatches=2, NBatchMap=c(rep(1, times=nlevels(dfData$fTreatment)),
-                                                rep(2, times=nlevels(dfData$fPatient))),
-                   y=as.integer(dfData$y))
-  
-  fit.stan.2 = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'populationMean', 'sigmaRan',
-                                                                             'phi', 'mu'),
-                        cores=2, control=list(adapt_delta=0.99, max_treedepth = 12))
-  #print(fit.stan.2, c('betas', 'populationMean', 'sigmaRan', 'phi'), digits=3)
-  
-  mCoef1 = extract(fit.stan.1)$betas[,1:2]
-  mCoef2 = extract(fit.stan.2)$betas[,1:2]
-  
-  colnames(mCoef1) = levels(factor(dfSample.2$group1))
-  colnames(mCoef2) = levels(factor(dfSample.study$Factor.Value.phenotype.))
-  
-  dif1 = getDifferenceVector(ivData = mCoef1[,'Lesional'], ivBaseline = mCoef1[,'Non-lesional'])
-  dif2 = getDifferenceVector(ivData = mCoef2[,'lesional'], ivBaseline = mCoef2[,'non-lesional'])
+  colnames(mCoef1) = gsub('fTreatment', '', colnames(m1))
+  # colnames(mCoef2) = levels(factor(dfSample.study$Factor.Value.phenotype.))
+  # 
+  dif1 = getDifferenceVector(ivData = mCoef1[,'lesional:batch1'], ivBaseline = mCoef1[,'non-lesional:batch1'])
+  dif2 = getDifferenceVector(ivData = mCoef1[,'lesional:batch2'], ivBaseline = mCoef1[,'non-lesional:batch2'])
   dif = getDifference(ivData = dif1, ivBaseline = dif2)
   r = data.frame(ind= cvGeneList[i], lVSnl=mean(dif1), 
-                 psoVSnor=mean(dif2), difference=mean(dif1)-mean(dif2),
-                 tstatistic=dif$z, pvalue=dif$p)
+                 psoVSnor=mean(dif2), difference=mean(dif1-dif2),
+                 zscore=dif$z, pvalue=dif$p)
   # dfData = data.frame(blas=dif1, psor=dif2)
   # dfData = stack(dfData)
   # 
@@ -331,7 +339,7 @@ for (i in seq_along(cvGeneList)){
   #        main=paste('Log Fold difference - disease vs healthy skin', cvGeneList[i])))
 }
 #dev.off(dev.cur())
-write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-41745_.csv')
+write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-41745_3.csv')
 library(org.Hs.eg.db)
 df = AnnotationDbi::select(org.Hs.eg.db, keys = as.character(dfResults$ind), 
                            keytype = 'SYMBOL', columns = 'ENTREZID')
@@ -339,7 +347,7 @@ i = match(as.character(dfResults$ind), df$SYMBOL)
 df = df[i,]
 identical(as.character(dfResults$ind), df$SYMBOL)
 dfResults$ENTREZID = df$ENTREZID
-write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-41745_2.csv')
+write.csv(dfResults, file='results/Alex_DEgenesAt10per_list_differences_in_dataset_E-GEOD-41745_3_.csv')
 
 ###################
 
