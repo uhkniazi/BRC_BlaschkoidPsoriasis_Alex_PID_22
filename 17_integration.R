@@ -29,8 +29,8 @@ rownames(mData) = df417$ind
 range(mData)
 quantile(as.vector(mData), 0:20/20)
 
-mData[mData < -2] = -2
-mData[mData > 3] = 3
+# mData[mData < -2] = -2
+# mData[mData > 3] = 3
 
 library(NMF)
 library(RColorBrewer)
@@ -44,6 +44,8 @@ length(cvSig)
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, 
          Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
+
+round(cor(mData),2)
 pdf('temp/heatmaps.pdf')
 
 aheatmap(mData, annRow = NA, scale = 'none', Rowv = T, 
@@ -67,14 +69,15 @@ aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T,
 cvSig = scan(what=character())
 length(cvSig)
 cvSig = cvSig[cvSig %in% rownames(mData)]
+round(cor(mData[cvSig,]), 2)
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, 
          Colv=T, cexRow=5, cexCol = 1, #labCol=c('C2vC1', 'K1vC1', 'K2vC2', 'K2vK1'), 
          col=c('white', brewer.pal(9, 'YlOrRd')))
 
 ### cluster using a subset of genes
 hc = hclust(dist(t(mData[cvSig,])))
-plot(hc)
-as.matrix(dist(t(mData[cvSig,])))
+plot(hc, main='clustering of bl', sub='')
+round(as.matrix(dist(t(mData[cvSig,]))),3)
 
 getDistance = function(m){
    d = as.matrix(dist(t(m)))
@@ -98,7 +101,7 @@ getPValue = function(Trep, Tobs){
 }
 
 hist(ivDist, main='simulated difference of distance', 
-     xlab='(bl:s544) - (s417:544)')
+     xlab='(bl:s544) - (s417:544)', xlim=c(-3, 5))
 points(iObs, 0, pch=20, col=2, cex=2)
 getPValue(ivDist, iObs)
 
