@@ -147,7 +147,7 @@ stanDso = rstan::stan_model(file='nbResponsePartialPooling.stan')
 
 dfResults = data.frame(row.names = 1:4)
 dfResults.raw = data.frame(row.names=1:4)
-#pdf('temp/figs.pdf')
+
 ############################################ repeat this analysis in a loop for various genes
 for (i in seq_along(cvGeneList)){
   ############### create data for input
@@ -196,21 +196,22 @@ for (i in seq_along(cvGeneList)){
   
 }
 
+pdf('temp/figs.pdf')
 df = stack(dfResults)
 df$f1 = factor(c('L', 'NL', 'L', 'NL'))
 df$f2 = factor(c('bl', 'bl', 's417', 's417'))
 
 xyplot(values ~ f1 | ind, data=df, groups=f2, type=c('l', 'p'), scales=list(relation='free', x=list(cex=0.7), y=list(cex=0.7)), 
-       ylab='Model Estimated log Average', main=list(label='profile of GWAS genes', cex=0.8),
-       xlab='Condition', auto.key = T)
+       ylab='Model Estimated log Average', main=list(label='profile of Selected genes', cex=0.8),
+       xlab='Condition', auto.key = list(columns=2))
 
 df = stack(dfResults.raw)
 df$f1 = factor(c('L', 'L', 'NL', 'NL'))
 df$f2 = factor(c('bl', 's417', 'bl', 's417'))
 
 xyplot(values ~ f1 | ind, data=df, groups=f2, type=c('l', 'p'), scales=list(relation='free', x=list(cex=0.7), y=list(cex=0.7)), 
-       ylab='log Average', main=list(label='profile of GWAS genes', cex=0.8),
-       xlab='Condition', auto.key = T)
+       ylab='log Average', main=list(label='profile of Selected genes', cex=0.8),
+       xlab='Condition', auto.key = list(columns=2))
 
 
 dev.off(dev.cur())
