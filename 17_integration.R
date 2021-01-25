@@ -81,8 +81,8 @@ round(as.matrix(dist(t(mData[cvSig,]))),3)
 
 getDistance = function(m){
    d = as.matrix(dist(t(m)))
-   d1 = (d['bl', 's544'])
-   d2 = (d['s417', 's544'])
+   d1 = (d['BP', 'GSE54456'])
+   d2 = (d['GSE41745', 'GSE54456'])
    return(d1 - d2)
 }
 
@@ -100,8 +100,9 @@ getPValue = function(Trep, Tobs){
   return(min(left, right))
 }
 
-hist(ivDist, main='simulated difference of distance', 
-     xlab='(bl:s544) - (s417:544)', xlim=c(-3, 5))
+hist(ivDist, main='Simulated distances based on resampling', 
+     xlab='', xlim=c(-3, 5), xaxt='n')
+axis(1, at = -3:5)
 points(iObs, 0, pch=20, col=2, cex=2)
 getPValue(ivDist, iObs)
 
