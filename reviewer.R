@@ -183,30 +183,40 @@ unlink('CDiagnosticPlots.R')
 
 load('reviewer_data/lData.BP.rds')
 load('reviewer_data/lData.GSE121212.rds')
+load('reviewer_data/lData.GSE41745.rds')
 mData = lData.BP$data
-mData.study = lData.GSE121212$data
-dfSample.2 = lData.BP$meta
-dfSample.study = lData.GSE121212$meta
+mData.121 = lData.GSE121212$data
+mData.417 = lData.GSE41745$data
+dfSample = lData.BP$meta
+dfSample.121 = lData.GSE121212$meta
+dfSample.417 = lData.GSE41745$meta
 
-## match the genes in the two data sets
-table(rownames(mData) %in% rownames(mData.study))
-mData = mData[rownames(mData) %in% rownames(mData.study), ]
-table(rownames(mData) %in% rownames(mData.study))
-length(unique(rownames(mData.study))); dim(mData.study)
-mData.study = mData.study[rownames(mData), ]
-dim(mData.study); dim(mData)
-identical(rownames(mData), rownames(mData.study))
+## match the genes in the 3 data sets
+r = rownames(mData)
+r.121 = rownames(mData.121)
+r.417 = rownames(mData.417)
+rc = Reduce(intersect, list(r, r.121, r.417))
+mData = mData[rc,]
+mData.121 = mData.121[rc,]
+mData.417 = mData.417[rc,]
 
-## normalise the 2 data sets separately
+identical(rownames(mData), rownames(mData.121))
+identical(rownames(mData), rownames(mData.417))
+
+## normalise the 3 data sets separately
 library(DESeq2)
+
 sf = estimateSizeFactorsForMatrix(mData)
-sf2 = estimateSizeFactorsForMatrix(mData.study)
+sf.121 = estimateSizeFactorsForMatrix(mData.121)
+sf.417 = estimateSizeFactorsForMatrix(mData.417)
 
-mData.norm.1 = sweep(mData, 2, sf, '/')
-mData.norm.2 = sweep(mData.study, 2, sf2, '/')
+mData.norm = sweep(mData, 2, sf, '/')
+mData.norm.121 = sweep(mData.121, 2, sf.121, '/')
+mData.norm.417 = sweep(mData.417, 2, sf.417, '/')
 
-################## merge the two samples 
-mData.merged = cbind(mData.norm.1, mData.norm.2)
+################## merge the three samples 
+mData.merged = cbind(mData.norm, mData.norm.417, mData.norm.121)
+
 # fGroups = c(as.character(dfSample.2$group1), 
 #             as.character(dfSample.study$fLesional))
 # fGroups = factor(fGroups)
@@ -232,10 +242,13 @@ mData.merged = cbind(mData.norm.1, mData.norm.2)
 cvGeneList = c('UBC', 'SDHA', 'CYC1', 'CANX', 'TBP',
                'YWHAZ', 'B2M', 'RPLP2', 'GAPDH')
 
+
 cvGeneList = scan(what=character())
+
 mData.sub = mData.merged[rownames(mData.merged) %in% cvGeneList, ]
 dim(mData.sub)
 cvGeneList = rownames(mData.sub)
+
 # ## plot these genes
 # library(lattice)
 # df = data.frame(t(log(mData.sub+1)))
@@ -281,14 +294,17 @@ for (i in seq_along(cvGeneList)){
   ############### create data for input
   
   dfData = data.frame(values = round(mData.sub[cvGeneList[i],],0))
-  f1 = c(dfSample.2$group1, as.character(dfSample.study$fLesional))
+  f1 = c(dfSample$group1, 
+         as.character(dfSample.417$treatment),
+         as.character(dfSample.121$fLesional))
   f1[grep('^lesional', f1, ignore.case = T)] = 'L'
   f1[grep('^non', f1, ignore.case = T)] = 'NL'
   dfData$fTreatment = factor(f1)
-  f2 = c(dfSample.2$group2, 
-         as.character(dfSample.study$fPID))
+  f2 = c(dfSample$group2,
+         as.character(dfSample.417$patient),
+         as.character(dfSample.121$fPID))
   dfData$fPatient = factor(f2)
-  f3 = c(rep(1, times=4), rep(2, times=55))
+  f3 = c(rep(1, times=4), rep(2, times=6), rep(3, times=55))
   dfData$ind = factor(f3)
   
   dfData$Coef.1 = factor(dfData$fTreatment:dfData$ind)
@@ -332,11 +348,15 @@ for (i in seq_along(cvGeneList)){
   # colnames(mCoef2) = levels(factor(dfSample.study$Factor.Value.phenotype.))
   # 
   dif1 = getDifferenceVector(ivData = mCoef1[,'L:1'], ivBaseline = mCoef1[,'NL:1'])
-  dif2 = getDifferenceVector(ivData = mCoef1[,'L:2'], ivBaseline = mCoef1[,'NL:2'])
-  dif = getDifference(ivData = dif1, ivBaseline = dif2)
-  r = data.frame(ind= cvGeneList[i], lVSnl=mean(dif1), 
-                 psoVSnor=mean(dif2), difference=mean(dif1-dif2),
-                 zscore=dif$z, pvalue=dif$p)
+  dif.417 = getDifferenceVector(ivData = mCoef1[,'L:2'], ivBaseline = mCoef1[,'NL:2'])
+  dif.121 = getDifferenceVector(ivData = mCoef1[,'L:3'], ivBaseline = mCoef1[,'NL:3'])
+  dif.417VsBP = getDifference(ivData = dif1, ivBaseline = dif.417)
+  dif.121VsBP = getDifference(ivData = dif1, ivBaseline = dif.121)
+  r = data.frame(ind= cvGeneList[i], BP_logFC_lVSnl=mean(dif1), 
+                 GSE41745_logFC=mean(dif.417), BP_vs_GSE41745=mean(dif1-dif.417),
+                 BP_vs_GSE41745_zscore=dif.417VsBP$z, BP_vs_GSE41745_pvalue=dif.417VsBP$p,
+                 GSE121212_logFC=mean(dif.121), BP_vs_GSE121212=mean(dif1-dif.121),
+                 BP_vs_GSE121212_zscore=dif.121VsBP$z, BP_vs_GSE121212_pvalue=dif.121VsBP$p)
   # dfData = data.frame(blas=dif1, psor=dif2)
   # dfData = stack(dfData)
   # 
@@ -358,8 +378,10 @@ i = match(as.character(dfResults$ind), df$SYMBOL)
 df = df[i,]
 identical(as.character(dfResults$ind), df$SYMBOL)
 dfResults$ENTREZID = df$ENTREZID
-dfResults$adj.P.Val = p.adjust(dfResults$pvalue, method = 'BH')
-write.csv(dfResults, file='results/divergent_GSE121212.xls')
+dfResults$GSE41745_adj.P.Val = p.adjust(dfResults$BP_vs_GSE41745_pvalue, method = 'BH')
+dfResults$GSE121212_adj.P.Val = p.adjust(dfResults$BP_vs_GSE121212_pvalue, method = 'BH')
+
+write.csv(dfResults, file='results/divergent_GSE121212_GSE41745_combinedModel.xls')
 
 ###################
 
