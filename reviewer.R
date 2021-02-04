@@ -9,6 +9,7 @@ source('header.R')
 ######### Rev 1 - Q2 - showing heatmaps of selected genes
 ############################################################################
 load('reviewer_data/bp_counts_norm.rds')
+colnames(mData.norm.bp) = c('P2-L', 'P1-L', 'P2-NL', 'P1-NL')
 cvSel = c("CARD14", "CARD6", "FUT2", "GJB2", "LCE3D", "PRSS53", "RPS6KA4", "STAT3")
 
 mData = mData.norm.bp[cvSel,]
