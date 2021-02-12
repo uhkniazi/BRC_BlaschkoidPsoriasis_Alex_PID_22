@@ -63,16 +63,23 @@ pairs(mData.p, pch=20, las=0.5)
 
 library(NMF)
 library(RColorBrewer)
+library(amap)
+
+d = Dist(t(mData), method='correlation')
+hc = hclust(d)
+plot(hc)
 
 aheatmap(mData.p, annRow = NA, scale = 'none', Rowv = T, breaks=0,
-         Colv=T, cexRow=5, cexCol = 1, distfun = 'correlation', 
+         Colv=hc, cexRow=5, cexCol = 1, distfun = 'correlation', 
          col=rev(brewer.pal(9, 'RdBu')))
 
 cvSig = dfCombined$ind[dfCombined$GSE121212_adj.P.Val < 0.01]
 length(cvSig)
 
+hc = hclust(Dist(t(mData[cvSig,]), method = 'correlation'))
+plot(hc)
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, breaks=0,
-         Colv=T, cexRow=5, cexCol = 1, distfun = 'correlation', 
+         Colv=hc, cexRow=5, cexCol = 1, distfun = 'correlation', 
          col=rev(brewer.pal(9, 'RdBu')))
 
 m = cor(mData)
@@ -88,8 +95,11 @@ cvSig = dfBP$SYMBOL[i[1:14]]
 length(cvSig)
 cvSig = cvSig[cvSig %in% rownames(mData)]
 
+hc = hclust(Dist(t(mData[cvSig,]), method = 'correlation'))
+plot(hc)
+
 aheatmap(mData[cvSig,], annRow = NA, scale = 'none', Rowv = T, #breaks=0,
-         Colv=T, cexRow=1, cexCol = 1, distfun = 'correlation', 
+         Colv=hc, cexRow=1, cexCol = 1, distfun = 'correlation', 
          col=rev(brewer.pal(9, 'RdBu')))
 
 m = cor(mData[cvSig, ])
