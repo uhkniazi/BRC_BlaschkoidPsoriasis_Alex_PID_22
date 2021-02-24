@@ -156,6 +156,16 @@ set.seed(123)
 fCluster = replicate(1000, simulateOne())
 table(fCluster)
 sum(!fCluster)/length(fCluster)
+sum(fCluster)/length(fCluster)
+
+## See bayesian computations with r page 24
+b = rbeta(1000, 2, 8)
+hist(b)
+1 - pbeta(0.5, 2, 8)
+sum(b >= 0.5)/length(b)
+
+
+
 
 # ivDist = replicate(1000, simulateOne())
 # iObs = getDistance(mData[cvSig,])
