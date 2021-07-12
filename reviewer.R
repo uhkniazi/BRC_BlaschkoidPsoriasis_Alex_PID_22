@@ -16,9 +16,12 @@ mData = mData.norm.bp[cvSel,]
 library(NMF)
 library(RColorBrewer)
 mData = log(mData+1)
+## optional - add a jitter for visual appearance
+set.seed(123)
+mData = apply(mData, 2, function(x) x + runif(length(x), -1*0.5, 0.5))
 
 aheatmap(mData, annRow = NA, scale = 'row', Rowv = T, 
-         Colv=T, cexRow=1, cexCol = 1, col='-RdBu:5')
+         Colv=T, cexRow=1, cexCol = 1, col=rev(brewer.pal(9, 'RdBu')), breaks = 0)
 
 ######### make line plots
 library(lattice)
